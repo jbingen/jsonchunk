@@ -367,3 +367,41 @@ describe('parseStream', () => {
     expect(snapshots.at(-1)).toEqual([1, 2, 3]);
   });
 });
+
+describe('fuzz', () => {
+  const objects = [
+    { name: 'Alice', age: 30 },
+    [1, 'two', null, true, false],
+    { nested: { deep: { value: 'hello\nworld' } }, arr: [1, [2, [3]]] },
+    { escapes: 'say "hi"\tand\\or\nnewline', empty: '', zero: 0, neg: -42 },
+    { mixed: [null, true, false, 0, -1, 3.14, '', 'abc', { a: 1 }, [2]] },
+    { unicode: 'café', path: 'C:\\Users\\admin', slash: 'a/b/c' },
+    { flags: { a: { b: { c: { d: true } } } }, tags: [] },
+  ];
+
+  for (const obj of objects) {
+    const json = JSON.stringify(obj);
+
+    test('split-at-every-position: ' + json.slice(0, 40) + (json.length > 40 ? '...' : ''), () => {
+      for (let i = 1; i < json.length; i++) {
+        const p = createParser();
+        p.push(json.slice(0, i));
+        p.push(json.slice(i));
+        expect(p.value).toEqual(obj);
+      }
+    });
+
+    test('char-by-char: ' + json.slice(0, 40) + (json.length > 40 ? '...' : ''), () => {
+      const p = createParser();
+      for (const ch of json) p.push(ch);
+      expect(p.value).toEqual(obj);
+    });
+  }
+
+  test('partial value never throws', () => {
+    const json = JSON.stringify({ a: { b: [1, 'x', null, true] }, c: -3.14 });
+    for (let i = 0; i <= json.length; i++) {
+      expect(() => parse(json.slice(0, i))).not.toThrow();
+    }
+  });
+});
